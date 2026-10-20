@@ -14,14 +14,14 @@ SCOPE = [
 ]
 
 def get_sheets():
-    """Autentica e retorna as abas do Google Sheets."""
+    """Autentica e retorna as abas do Google Sheets de forma otimizada."""
     creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
     client = gspread.authorize(creds)
     sheet = client.open("Controle de Estoque MKT - Produtos")
     return sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def normalizar_dados_produtos(produtos_raw):
-    """Normaliza as chaves do dicionário para evitar erros no HTML."""
+    """Normaliza as chaves da planilha de produtos."""
     produtos_formatados = []
     for p in produtos_raw:
         item_id = p.get('ID', p.get('id', ''))
@@ -42,6 +42,34 @@ def normalizar_dados_produtos(produtos_raw):
         })
     return produtos_formatados
 
+def normalizar_dados_movimentacoes(movimentacoes_raw):
+    """Normaliza e extrai data/hora de qualquer variação de coluna no Sheets."""
+    movimentacoes_formatadas = []
+    for m in movimentacoes_raw:
+        # Busca todas as variações possíveis de nome de coluna de data
+        data_hora = (
+            m.get('Data/Hora') or 
+            m.get('Data / Hora') or 
+            m.get('Data') or 
+            m.get('DataHora') or 
+            m.get('data') or 
+            'Sem data'
+        )
+        
+        produto = m.get('Produto', m.get('produto', ''))
+        tipo = m.get('Tipo', m.get('tipo', ''))
+        qtd = m.get('Quantidade', m.get('Qtd', m.get('quantidade', 0)))
+        obs = m.get('Observacao', m.get('Observação', m.get('observacao', '')))
+
+        movimentacoes_formatadas.append({
+            'DataHora': str(data_hora),
+            'Produto': produto,
+            'Tipo': tipo,
+            'Quantidade': qtd,
+            'Observacao': obs
+        })
+    return movimentacoes_formatadas
+
 @app.route('/')
 def index():
     try:
@@ -50,7 +78,10 @@ def index():
         movimentacoes_raw = sheet_mov.get_all_records()
         
         produtos = normalizar_dados_produtos(produtos_raw)
-        movimentacoes_recentes = movimentacoes_raw[-15:][::-1] if movimentacoes_raw else []
+        movimentacoes = normalizar_dados_movimentacoes(movimentacoes_raw)
+        
+        # Pega as últimas 15 movimentações em ordem decrescente
+        movimentacoes_recentes = movimentacoes[-15:][::-1] if movimentacoes else []
     except Exception as e:
         flash(f'Erro ao carregar dados do sistema: {e}', 'danger')
         produtos = []
@@ -75,10 +106,8 @@ def cadastrar():
                 return redirect(url_for('index'))
 
         novo_id = len(produtos_raw) + 1
-        # Registra o novo produto na aba Produtos
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial])
 
-        # Se houver quantidade inicial maior que zero, registra no histórico de movimentação
         if qtd_inicial > 0:
             fuso_br = pytz.timezone('America/Sao_Paulo')
             data_hora = datetime.now(fuso_br).strftime('%d/%m/%Y %H:%M:%S')
@@ -99,23 +128,32 @@ def movimentar():
 
     try:
         sheet_produtos, sheet_mov = get_sheets()
-        cell = sheet_produtos.find(nome_produto)
-        if not cell:
+        produtos_raw = sheet_produtos.get_all_records()
+        
+        # Busca a linha do produto diretamente na memória local (muito mais rápido que .find do gspread)
+        linha_index = None
+        qtd_atual = 0
+        
+        for idx, p in enumerate(produtos_raw, start=2): # start=2 pois a linha 1 é cabeçalho
+            nome_p = p.get('Produto', p.get('Nome', ''))
+            if str(nome_p).strip() == str(nome_produto).strip():
+                linha_index = idx
+                val_atual = p.get('Saldo Em Estoque', p.get('Saldo em Estoque', p.get('Quantidade', 0)))
+                qtd_atual = int(val_atual) if str(val_atual).isdigit() else 0
+                break
+
+        if not linha_index:
             flash('Produto não encontrado no sistema!', 'danger')
             return redirect(url_for('index'))
-
-        linha = cell.row
-        val_atual = sheet_produtos.cell(linha, 4).value
-        qtd_atual = int(val_atual) if str(val_atual).isdigit() else 0
 
         if tipo == 'Saida' and qtd > qtd_atual:
             flash(f'Erro: Estoque insuficiente! Saldo atual: {qtd_atual}', 'warning')
             return redirect(url_for('index'))
 
         nova_qtd = (qtd_atual + qtd) if tipo == 'Entrada' else (qtd_atual - qtd)
-        sheet_produtos.update_cell(linha, 4, nova_qtd)
+        # Atualiza o saldo da coluna 4 na planilha
+        sheet_produtos.update_cell(linha_index, 4, nova_qtd)
 
-        # Grava a data e hora em formato brasileiro no Histórico de Movimentações
         fuso_br = pytz.timezone('America/Sao_Paulo')
         data_hora = datetime.now(fuso_br).strftime('%d/%m/%Y %H:%M:%S')
         sheet_mov.append_row([data_hora, nome_produto, tipo, qtd, obs])
