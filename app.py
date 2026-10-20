@@ -1,3 +1,5 @@
+import os
+import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from flask import Flask, render_template, request, redirect, url_for, flash
@@ -10,8 +12,15 @@ app.secret_key = 'chave_secreta_mkt'
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
 def get_sheets():
-    """Autentica e conecta com a Planilha Google."""
-    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
+    """Autentica e conecta com a Planilha Google (suporta variável do Render e arquivo local)."""
+    # Se estiver rodando no Render com a variável de ambiente cadastrada
+    if "GOOGLE_CREDENTIALS" in os.environ:
+        creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPE)
+    # Se estiver rodando localmente com o arquivo credentials.json
+    else:
+        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
+
     client = gspread.authorize(creds)
     # Abre a planilha pelo nome exato
     sheet = client.open("Controle de Estoque MKT - Produtos")
@@ -78,7 +87,7 @@ def movimentar():
             return redirect(url_for('index'))
 
         linha = cell.row
-        qtd_atual = int(sheet_produtos.cell(linha, 4).value) # Coluna 4 é Quantidade
+        qtd_atual = int(sheet_produtos.cell(linha, 4).value)  # Coluna 4 é Quantidade
 
         # Validação de Estoque Negativo
         if tipo == 'Saida' and qtd > qtd_atual:
