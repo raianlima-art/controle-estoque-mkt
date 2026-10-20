@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Estoque - MKT</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-4">
+    <h1 class="mb-4 text-center">📦 Controle de Estoque - Marketing</h1>
+
+    <!-- Exibição de Mensagens de Alerta/Notificação -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        <!-- Cadastrar Produto -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Cadastrar Novo Item</h5>
+                </div>
+                <div class="card-body">
+                    <form action="/cadastrar" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">Nome do Produto</label>
+                            <input type="text" name="nome" class="form-control" placeholder="Ex: Camiseta P - Evento" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Categoria</label>
+                            <input type="text" name="categoria" class="form-control" placeholder="Ex: Brindes, Vestuário, Impressos" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Quantidade Inicial</label>
+                            <input type="number" name="quantidade" class="form-control" value="0" min="0">
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">Cadastrar Item</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dar Entrada / Saída -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="card-title mb-0">Movimentar Estoque</h5>
+                </div>
+                <div class="card-body">
+                    <form action="/movimentar" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">Selecione o Produto</label>
+                            <select name="produto_id" class="form-select" required>
+                                <option value="">-- Escolha um item --</option>
+                                {% for item in produtos %}
+                                    <option value="{{ item.id }}">{{ item.nome }} (Atual: {{ item.quantidade }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Tipo</label>
+                                <select name="tipo" class="form-select" required>
+                                    <option value="Entrada">Entrada (+)</option>
+                                    <option value="Saida">Saída (-)</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Quantidade</label>
+                                <input type="number" name="quantidade" class="form-control" min="1" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Observação / Motivo</label>
+                            <input type="text" name="observacao" class="form-control" placeholder="Ex: Feira Tech 2026, Presente Cliente">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Registrar Movimentação</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Produtos -->
+    <div class="card shadow-sm my-4">
+        <div class="card-header bg-white">
+            <h5 class="card-title mb-0">Estoque Atual</h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Produto</th>
+                        <th>Categoria</th>
+                        <th>Saldo Em Estoque</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in produtos %}
+                    <tr>
+                        <td>{{ p.id }}</td>
+                        <td><strong>{{ p.nome }}</strong></td>
+                        <td><span class="badge bg-secondary">{{ p.categoria }}</span></td>
+                        <td>
+                            {% if p.quantidade < 5 %}
+                                <span class="badge bg-danger fs-6">{{ p.quantidade }} (Baixo)</span>
+                            {% else %}
+                                <span class="badge bg-success fs-6">{{ p.quantidade }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-3 text-muted">Nenhum produto cadastrado.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Histórico Recente -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="card-title mb-0">Últimas Movimentações</h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Produto</th>
+                        <th>Tipo</th>
+                        <th>Qtd</th>
+                        <th>Observação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in movimentacoes %}
+                    <tr>
+                        <td><small>{{ m.data_hora }}</small></td>
+                        <td>{{ m.nome }}</td>
+                        <td>
+                            {% if m.tipo == 'Entrada' %}
+                                <span class="badge bg-success">Entrada</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Saída</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ m.quantidade }}</strong></td>
+                        <td>{{ m.observacao or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-3 text-muted">Nenhuma movimentação realizada ainda.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
