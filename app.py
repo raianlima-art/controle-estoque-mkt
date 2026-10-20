@@ -10,7 +10,7 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_mkt'
 
-# ID da pasta 'Fotos Estoque MKT'
+# ID da pasta 'Fotos Estoque MKT' no Google Drive
 DRIVE_FOLDER_ID = "1VfYSxih1ZiQYUTnTWsxPQntv-qKej"
 
 SCOPE = [
@@ -32,11 +32,11 @@ def get_drive_and_sheets():
     return drive_service, sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def salvar_foto_no_drive(drive_service, file_storage):
-    """Salva o arquivo temporariamente e realiza o upload para o Google Drive com fallback de permissão."""
+    """Salva o arquivo temporariamente e faz o upload para a pasta compartilhada no Google Drive."""
     if not file_storage or file_storage.filename == '':
         return ""
 
-    # Salva temporariamente no disco local do servidor
+    # Salva temporariamente no servidor local
     caminho_temp = os.path.join("/tmp" if os.name != 'nt' else ".", file_storage.filename)
     file_storage.save(caminho_temp)
 
@@ -44,30 +44,23 @@ def salvar_foto_no_drive(drive_service, file_storage):
         nome_arquivo = f"produto_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file_storage.filename}"
         media = MediaFileUpload(caminho_temp, mimetype=file_storage.mimetype)
         
-        # Tenta salvar na pasta do Drive; se houver restrição de permissão na pasta, salva na raiz do bot
-        try:
-            file_metadata = {
-                'name': nome_arquivo,
-                'parents': [DRIVE_FOLDER_ID]
-            }
-            arquivo_drive = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id',
-                supportsAllDrives=True,
-                supportsTeamDrives=True
-            ).execute()
-        except Exception:
-            file_metadata = {'name': nome_arquivo}
-            arquivo_drive = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id'
-            ).execute()
+        # Envia o arquivo diretamente para a pasta compartilhada (DRIVE_FOLDER_ID)
+        file_metadata = {
+            'name': nome_arquivo,
+            'parents': [DRIVE_FOLDER_ID]
+        }
+        
+        arquivo_drive = drive_service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id',
+            supportsAllDrives=True,
+            supportsTeamDrives=True
+        ).execute()
 
         file_id = arquivo_drive.get('id')
 
-        # Torna o arquivo público para exibição da miniatura no site
+        # Concede permissão de leitura pública para exibir a miniatura da imagem no site
         try:
             drive_service.permissions().create(
                 fileId=file_id,
@@ -78,7 +71,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
         except Exception:
             pass
 
-        # Link direto para ser exibido na tag <img>
+        # Retorna o link de visualização direta
         return f"https://lh3.googleusercontent.com/d/{file_id}"
 
     finally:
@@ -116,13 +109,13 @@ def cadastrar():
                 flash('Erro: Um produto com esse nome já existe no sistema!', 'danger')
                 return redirect(url_for('index'))
 
-        # Envia a foto para o Drive
+        # Envia a foto para a pasta compartilhada do Google Drive
         foto_url = salvar_foto_no_drive(drive_service, file_foto)
 
         novo_id = len(produtos) + 1
         # Registra na planilha [ID, Nome, Categoria, Quantidade, Foto]
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
-        flash('Produto cadastrado com sucesso!', 'success')
+        flash('Produto cadastrado e foto enviada com sucesso!', 'success')
     except Exception as e:
         flash(f'Erro ao cadastrar produto: {e}', 'danger')
 
