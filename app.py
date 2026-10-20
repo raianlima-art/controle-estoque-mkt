@@ -10,7 +10,7 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_mkt'
 
-# Novo ID da pasta 'Fotos Estoque MKT' dentro do Drive Compartilhado 'Compras'
+# ID da pasta 'Fotos Estoque MKT'
 DRIVE_FOLDER_ID = "193W91ecaAJIS_I-ekRl-HUKa_XDkHzYC"
 
 SCOPE = [
@@ -30,7 +30,7 @@ def get_drive_and_sheets():
     return drive_service, sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def salvar_foto_no_drive(drive_service, file_storage):
-    """Realiza o upload da foto diretamente para a pasta no Drive Compartilhado."""
+    """Realiza o upload da foto diretamente para a pasta com permissão dedicada no Drive Compartilhado."""
     if not file_storage or file_storage.filename == '':
         return ""
 
@@ -46,7 +46,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
             'parents': [DRIVE_FOLDER_ID]
         }
         
-        # Envia o arquivo com suporte a Drives Compartilhados ativado
+        # O parâmetro supportsAllDrives=True permite criar o arquivo na subpasta onde o bot é Colaborador/Editor
         arquivo_drive = drive_service.files().create(
             body=file_metadata,
             media_body=media,
@@ -57,7 +57,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
 
         file_id = arquivo_drive.get('id')
 
-        # Concede permissão de leitura pública para renderizar a miniatura na tabela do site
+        # Torna o arquivo visível publicamente para exibir a miniatura
         try:
             drive_service.permissions().create(
                 fileId=file_id,
@@ -104,11 +104,10 @@ def cadastrar():
                 flash('Erro: Um produto com esse nome já existe no sistema!', 'danger')
                 return redirect(url_for('index'))
 
-        # Envia a foto para a nova pasta no Drive Compartilhado
+        # Envia a foto para a pasta do Drive
         foto_url = salvar_foto_no_drive(drive_service, file_foto)
 
         novo_id = len(produtos) + 1
-        # Regista na planilha [ID, Nome, Categoria, Quantidade, Foto]
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
         flash('Produto cadastrado e foto enviada com sucesso!', 'success')
     except Exception as e:
