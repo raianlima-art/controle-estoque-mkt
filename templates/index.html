@@ -1,194 +1,336 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle de Estoque - MKT</title>
+    <title>Controle de Estoque - Marketing</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --bs-body-bg: #f4f6f9;
+            --primary-color: #0d6efd;
+            --card-radius: 12px;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bs-body-bg);
+            color: #334155;
+        }
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .card-custom {
+            border: none;
+            border-radius: var(--card-radius);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            background: #ffffff;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .kpi-card {
+            border-left: 4px solid var(--primary-color);
+        }
+        .kpi-card.warning { border-left-color: #ffc107; }
+        .kpi-card.success { border-left-color: #198754; }
+        
+        .table-custom thead {
+            background-color: #f8fafc;
+            color: #64748b;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-category {
+            background-color: #e2e8f0;
+            color: #475569;
+            font-weight: 600;
+            border-radius: 6px;
+            padding: 4px 8px;
+        }
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            padding: 0.6rem 0.8rem;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+        }
+        .btn-custom {
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+        }
+    </style>
 </head>
-<body class="bg-light">
+<body>
 
-<div class="container py-4">
-    <h1 class="mb-4 text-center">📦 Controle de Estoque - Marketing</h1>
+    <!-- Header / Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3 mb-4 shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+                <i class="bi bi-box-seam-fill text-warning fs-4"></i>
+                <span>Controle de Estoque <span class="badge bg-primary text-uppercase fs-6">Marketing</span></span>
+            </a>
+        </div>
+    </nav>
 
-    <!-- Exibição de Mensagens -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+    <div class="container mb-5">
 
-    <div class="row g-4">
-        <!-- Cadastrar Produto com Envio de Foto -->
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="card-title mb-0">Cadastrar Novo Item</h5>
+        <!-- Mensagens de Alerta (Flash) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show card-custom border-0 mb-4" role="alert">
+                <i class="bi bi-info-circle-fill me-2"></i> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- Cards de Métricas (KPIs) -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card card-custom kpi-card p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="text-muted small fw-semibold text-uppercase">Total de Produtos</div>
+                            <div class="fs-3 fw-bold mt-1" id="totalProdutos">{{ produtos|length }}</div>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary fs-3">
+                            <i class="bi bi-grid-3x3-gap-fill"></i>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <!-- enctype="multipart/form-data" é obrigatório para envio de arquivos -->
-                    <form action="/cadastrar" method="POST" enctype="multipart/form-data">
-                        <div class="mb-3">
-                            <label class="form-label">Nome do Produto</label>
-                            <input type="text" name="nome" class="form-control" placeholder="Ex: Camiseta P - Evento" required>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-custom kpi-card warning p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="text-muted small fw-semibold text-uppercase">Estoque Crítico / Baixo</div>
+                            {% set ns = namespace(baixo=0) %}
+                            {% for p in produtos %}
+                                {% if p['Saldo Em Estoque']|int <= 0 %}
+                                    {% set ns.baixo = ns.baixo + 1 %}
+                                {% endif %}
+                            {% endfor %}
+                            <div class="fs-3 fw-bold mt-1 text-warning" id="totalEstoqueBaixo">{{ ns.baixo }}</div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Categoria</label>
-                            <input type="text" name="categoria" class="form-control" placeholder="Ex: Brindes, Vestuário, Impressos" required>
+                        <div class="bg-warning bg-opacity-10 p-3 rounded-circle text-warning fs-3">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Tirar ou Anexar Foto do Item</label>
-                            <!-- accept="image/*" ativa a câmera em celulares e aceita fotos -->
-                            <input type="file" name="foto" class="form-control" accept="image/*">
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card card-custom kpi-card success p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <div class="text-muted small fw-semibold text-uppercase">Total Itens em Saldo</div>
+                            {% set ns = namespace(total=0) %}
+                            {% for p in produtos %}
+                                {% set ns.total = ns.total + (p['Saldo Em Estoque']|int) %}
+                            {% endfor %}
+                            <div class="fs-3 fw-bold mt-1 text-success">{{ ns.total }}</div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Quantidade Inicial</label>
-                            <input type="number" name="quantidade" class="form-control" value="0" min="0">
+                        <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success fs-3">
+                            <i class="bi bi-boxes"></i>
                         </div>
-                        <button type="submit" class="btn btn-success w-100">Cadastrar Item</button>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Dar Entrada / Saída -->
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="card-title mb-0">Movimentar Estoque</h5>
+        <!-- Forms: Novo Cadastro e Movimentação -->
+        <div class="row g-4 mb-5">
+            <!-- Form Cadastrar Novo Item -->
+            <div class="col-lg-6">
+                <div class="card card-custom h-100 p-4">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-plus-circle-fill text-success fs-4"></i>
+                        <h5 class="m-0 fw-bold">Cadastrar Novo Produto</h5>
+                    </div>
+                    <form action="/cadastrar" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-secondary">Nome do Produto</label>
+                            <input type="text" name="nome" class="form-control" placeholder="Ex: Camiseta P - Evento Tech" required>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-7">
+                                <label class="form-label small fw-bold text-secondary">Categoria</label>
+                                <input type="text" name="categoria" class="form-control" placeholder="Ex: Brindes, Vestuário" required>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold text-secondary">Qtd Inicial</label>
+                                <input type="number" name="quantidade" class="form-control" value="0" min="0" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-custom w-100 mt-2">
+                            <i class="bi bi-check-lg me-1"></i> Cadastrar Produto
+                        </button>
+                    </form>
                 </div>
-                <div class="card-body">
+            </div>
+
+            <!-- Form Movimentar Estoque -->
+            <div class="col-lg-6">
+                <div class="card card-custom h-100 p-4">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <i class="bi bi-arrow-left-right text-primary fs-4"></i>
+                        <h5 class="m-0 fw-bold">Registrar Movimentação</h5>
+                    </div>
                     <form action="/movimentar" method="POST">
                         <div class="mb-3">
-                            <label class="form-label">Selecione o Produto</label>
+                            <label class="form-label small fw-bold text-secondary">Selecione o Produto</label>
                             <select name="produto_id" class="form-select" required>
-                                <option value="">-- Escolha um item --</option>
-                                {% for item in produtos %}
-                                    <option value="{{ item.Nome }}">{{ item.Nome }} (Atual: {{ item.Quantidade }})</option>
+                                <option value="" disabled selected>-- Selecione um item --</option>
+                                {% for p in produtos %}
+                                    <option value="{{ p['Produto'] }}">{{ p['Produto'] }} (Saldo: {{ p['Saldo Em Estoque'] }})</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="row mb-3">
-                            <div class="col-6">
-                                <label class="form-label">Tipo</label>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Tipo de Entrada/Saída</label>
                                 <select name="tipo" class="form-select" required>
                                     <option value="Entrada">Entrada (+)</option>
                                     <option value="Saida">Saída (-)</option>
                                 </select>
                             </div>
-                            <div class="col-6">
-                                <label class="form-label">Quantidade</label>
-                                <input type="number" name="quantidade" class="form-control" min="1" required>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-secondary">Quantidade</label>
+                                <input type="number" name="quantidade" class="form-control" min="1" placeholder="Qtd" required>
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Observação / Motivo</label>
-                            <input type="text" name="observacao" class="form-control" placeholder="Ex: Feira Tech 2026, Presente Cliente">
+                            <label class="form-label small fw-bold text-secondary">Observação / Motivo</label>
+                            <input type="text" name="observacao" class="form-control" placeholder="Ex: Feira Tech 2026, Presente Cliente" required>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Registrar Movimentação</button>
+                        <button type="submit" class="btn btn-primary btn-custom w-100">
+                            <i class="bi bi-arrow-repeat me-1"></i> Confirmar Movimentação
+                        </button>
                     </form>
                 </div>
             </div>
         </div>
+
+        <!-- Tabela de Estoque Atual -->
+        <div class="card card-custom p-4 mb-5">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-card-checklist fs-4 text-dark"></i>
+                    <h5 class="m-0 fw-bold">Estoque Atual</h5>
+                </div>
+                <div class="d-flex gap-2 col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="inputBusca" class="form-control border-start-0" placeholder="Buscar produto...">
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle table-custom mb-0" id="tabelaEstoque">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">ID</th>
+                            <th>Produto</th>
+                            <th>Categoria</th>
+                            <th class="text-end" style="width: 200px;">Saldo em Estoque</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in produtos %}
+                        <tr>
+                            <td class="text-secondary fw-semibold">#{{ p['ID'] }}</td>
+                            <td class="fw-bold text-dark item-nome">{{ p['Produto'] }}</td>
+                            <td><span class="badge badge-category">{{ p['Categoria'] }}</span></td>
+                            <td class="text-end">
+                                {% if p['Saldo Em Estoque']|int <= 0 %}
+                                    <span class="badge bg-danger fs-6 px-3 py-2">0 (Sem Estoque)</span>
+                                {% elif p['Saldo Em Estoque']|int <= 10 %}
+                                    <span class="badge bg-warning text-dark fs-6 px-3 py-2">{{ p['Saldo Em Estoque'] }} (Baixo)</span>
+                                {% else %}
+                                    <span class="badge bg-success fs-6 px-3 py-2">{{ p['Saldo Em Estoque'] }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">Nenhum produto cadastrado no momento.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tabela de Últimas Movimentações -->
+        <div class="card card-custom p-4">
+            <div class="d-flex align-items-center gap-2 mb-4">
+                <i class="bi bi-clock-history fs-4 text-dark"></i>
+                <h5 class="m-0 fw-bold">Histórico de Movimentações Recentes</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle table-custom mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data / Hora</th>
+                            <th>Produto</th>
+                            <th>Tipo</th>
+                            <th class="text-center">Quantidade</th>
+                            <th>Observação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in movimentacoes %}
+                        <tr>
+                            <td class="text-secondary small">{{ m['Data/Hora'] }}</td>
+                            <td class="fw-semibold text-dark">{{ m['Produto'] }}</td>
+                            <td>
+                                {% if m['Tipo'] == 'Entrada' %}
+                                    <span class="badge bg-success bg-opacity-10 text-success fw-bold px-2 py-1"><i class="bi bi-arrow-down-left me-1"></i>Entrada</span>
+                                {% else %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger fw-bold px-2 py-1"><i class="bi bi-arrow-up-right me-1"></i>Saída</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center fw-bold">{{ m['Quantidade'] }}</td>
+                            <td class="text-muted small">{{ m['Observacao'] }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">Nenhuma movimentação registrada.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Tabela de Produtos com Foto do Drive -->
-    <div class="card shadow-sm my-4">
-        <div class="card-header bg-white">
-            <h5 class="card-title mb-0">Estoque Atual</h5>
-        </div>
-        <div class="card-body p-0">
-            <table class="table table-striped table-hover align-middle mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Foto</th>
-                        <th>Produto</th>
-                        <th>Categoria</th>
-                        <th>Saldo Em Estoque</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in produtos %}
-                    <tr>
-                        <td>{{ p.ID }}</td>
-                        <td>
-                            {% if p.Foto %}
-                                <a href="{{ p.Foto }}" target="_blank">
-                                    <img src="{{ p.Foto }}" alt="{{ p.Nome }}" class="rounded shadow-sm" style="width: 48px; height: 48px; object-fit: cover;">
-                                </a>
-                            {% else %}
-                                <span class="badge bg-light text-dark border">Sem foto</span>
-                            {% endif %}
-                        </td>
-                        <td><strong>{{ p.Nome }}</strong></td>
-                        <td><span class="badge bg-secondary">{{ p.Categoria }}</span></td>
-                        <td>
-                            {% if p.Quantidade|int < 5 %}
-                                <span class="badge bg-danger fs-6">{{ p.Quantidade }} (Baixo)</span>
-                            {% else %}
-                                <span class="badge bg-success fs-6">{{ p.Quantidade }}</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center py-3 text-muted">Nenhum produto cadastrado.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Histórico Recente -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-white">
-            <h5 class="card-title mb-0">Últimas Movimentações</h5>
-        </div>
-        <div class="card-body p-0">
-            <table class="table table-sm mb-0">
-                <thead>
-                    <tr>
-                        <th>Data/Hora</th>
-                        <th>Produto</th>
-                        <th>Tipo</th>
-                        <th>Qtd</th>
-                        <th>Observação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for m in movimentacoes %}
-                    <tr>
-                        <td><small>{{ m.Data_Hora }}</small></td>
-                        <td>{{ m.Produto }}</td>
-                        <td>
-                            {% if m.Tipo == 'Entrada' %}
-                                <span class="badge bg-success">Entrada</span>
-                            {% else %}
-                                <span class="badge bg-warning text-dark">Saída</span>
-                            {% endif %}
-                        </td>
-                        <td><strong>{{ m.Quantidade }}</strong></td>
-                        <td>{{ m.Observacao or '-' }}</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="5" class="text-center py-3 text-muted">Nenhuma movimentação realizada ainda.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Script de Busca em Tempo Real -->
+    <script>
+        document.getElementById('inputBusca').addEventListener('keyup', function() {
+            let filtro = this.value.toLowerCase();
+            let linhas = document.querySelectorAll('#tabelaEstoque tbody tr');
+            
+            linhas.forEach(function(linha) {
+                let textoProduto = linha.querySelector('.item-nome')?.textContent.toLowerCase() || '';
+                if (textoProduto.includes(filtro)) {
+                    linha.style.display = '';
+                } else {
+                    linha.style.display = 'none';
+                }
+            });
+        });
+    </script>
 </body>
 </html>
