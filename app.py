@@ -30,7 +30,7 @@ def get_drive_and_sheets():
     return drive_service, sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def salvar_foto_no_drive(drive_service, file_storage):
-    """Salva o arquivo e faz o upload para o Google Drive tratando restrições de cota do Workspace."""
+    """Tenta realizar o upload para o Google Drive com tratamento seguro de erros do Workspace."""
     if not file_storage or file_storage.filename == '':
         return ""
 
@@ -41,33 +41,23 @@ def salvar_foto_no_drive(drive_service, file_storage):
         nome_arquivo = f"produto_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file_storage.filename}"
         media = MediaFileUpload(caminho_temp, mimetype=file_storage.mimetype, resumable=True)
         
-        # Tentativa 1: Gravar na pasta específica do Drive
-        try:
-            file_metadata = {
-                'name': nome_arquivo,
-                'parents': [DRIVE_FOLDER_ID]
-            }
-            arquivo_drive = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id',
-                supportsAllDrives=True,
-                supportsTeamDrives=True
-            ).execute()
-        except Exception:
-            # Tentativa 2: Gravar sem definir pasta raiz caso o Workspace bloqueie o 'parents'
-            file_metadata = {'name': nome_arquivo}
-            arquivo_drive = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id',
-                supportsAllDrives=True,
-                supportsTeamDrives=True
-            ).execute()
+        file_metadata = {
+            'name': nome_arquivo,
+            'parents': [DRIVE_FOLDER_ID]
+        }
+        
+        # Envia para o Drive
+        arquivo_drive = drive_service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id',
+            supportsAllDrives=True,
+            supportsTeamDrives=True
+        ).execute()
 
         file_id = arquivo_drive.get('id')
 
-        # Torna o arquivo visível publicamente para renderizar a foto na tabela
+        # Torna o arquivo visível para renderizar a imagem na tabela
         try:
             drive_service.permissions().create(
                 fileId=file_id,
@@ -81,7 +71,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
         return f"https://lh3.googleusercontent.com/d/{file_id}"
 
     except Exception as e:
-        print(f"Aviso no upload da foto: {e}")
+        print(f"Aviso no upload do Drive (Restricao Workspace): {e}")
         return ""
     finally:
         if os.path.exists(caminho_temp):
@@ -117,13 +107,16 @@ def cadastrar():
                 flash('Erro: Um produto com esse nome já existe no sistema!', 'danger')
                 return redirect(url_for('index'))
 
-        foto_url = salvar_foto_no_drive(drive_service, file_foto)
+        # Tenta realizar o upload da foto sem derrubar a rota caso haja erro no Drive
+        foto_url = ""
+        if file_foto and file_foto.filename:
+            foto_url = salvar_foto_no_drive(drive_service, file_foto)
 
         novo_id = len(produtos) + 1
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
         
         if file_foto and file_foto.filename and not foto_url:
-            flash('Produto cadastrado! (Aviso: A imagem não pôde ser enviada devido às restrições do Drive corporativo)', 'warning')
+            flash('Produto cadastrado com sucesso! (Nota: O upload direto via câmara/arquivo foi limitado pelas políticas do Workspace do Google Drive)', 'warning')
         else:
             flash('Produto cadastrado com sucesso!', 'success')
     except Exception as e:
