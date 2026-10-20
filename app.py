@@ -20,13 +20,39 @@ def get_sheets():
     sheet = client.open("Controle de Estoque MKT - Produtos")
     return sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
+def normalizar_dados_produtos(produtos_raw):
+    """Normaliza as chaves do dicionário para evitar erros de KeyError no HTML."""
+    produtos_formatados = []
+    for p in produtos_raw:
+        # Pega os dados independentemente de variações no cabeçalho
+        item_id = p.get('ID', p.get('id', ''))
+        nome = p.get('Produto', p.get('Nome', p.get('produto', '')))
+        categoria = p.get('Categoria', p.get('categoria', 'Geral'))
+        
+        # Procura a quantidade
+        saldo = p.get('Saldo Em Estoque', p.get('Saldo em Estoque', p.get('Quantidade', p.get('quantidade', 0))))
+        try:
+            saldo = int(saldo) if str(saldo).isdigit() else 0
+        except Exception:
+            saldo = 0
+
+        produtos_formatados.append({
+            'ID': item_id,
+            'Produto': nome,
+            'Categoria': categoria,
+            'Saldo': saldo
+        })
+    return produtos_formatados
+
 @app.route('/')
 def index():
     try:
         sheet_produtos, sheet_mov = get_sheets()
-        produtos = sheet_produtos.get_all_records()
-        movimentacoes = sheet_mov.get_all_records()
-        movimentacoes_recentes = movimentacoes[-10:][::-1]
+        produtos_raw = sheet_produtos.get_all_records()
+        movimentacoes_raw = sheet_mov.get_all_records()
+        
+        produtos = normalizar_dados_produtos(produtos_raw)
+        movimentacoes_recentes = movimentacoes_raw[-10:][::-1] if movimentacoes_raw else []
     except Exception as e:
         flash(f'Erro ao carregar dados do sistema: {e}', 'danger')
         produtos = []
@@ -42,15 +68,16 @@ def cadastrar():
 
     try:
         sheet_produtos, _ = get_sheets()
-        produtos = sheet_produtos.get_all_records()
+        produtos_raw = sheet_produtos.get_all_records()
 
-        for p in produtos:
-            if str(p.get('Produto')).strip().lower() == nome.strip().lower():
+        for p in produtos_raw:
+            nome_p = p.get('Produto', p.get('Nome', ''))
+            if str(nome_p).strip().lower() == nome.strip().lower():
                 flash('Erro: Um produto com esse nome já existe!', 'danger')
                 return redirect(url_for('index'))
 
-        novo_id = len(produtos) + 1
-        # Registra [ID, Produto, Categoria, Saldo Em Estoque]
+        novo_id = len(produtos_raw) + 1
+        # Grava na planilha [ID, Produto, Categoria, Quantidade]
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial])
         flash('Produto cadastrado com sucesso!', 'success')
     except Exception as e:
@@ -73,7 +100,8 @@ def movimentar():
             return redirect(url_for('index'))
 
         linha = cell.row
-        qtd_atual = int(sheet_produtos.cell(linha, 4).value)
+        val_atual = sheet_produtos.cell(linha, 4).value
+        qtd_atual = int(val_atual) if str(val_atual).isdigit() else 0
 
         if tipo == 'Saida' and qtd > qtd_atual:
             flash(f'Erro: Estoque insuficiente! Saldo atual: {qtd_atual}', 'warning')
