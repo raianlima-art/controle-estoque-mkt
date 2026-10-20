@@ -30,7 +30,7 @@ def get_drive_and_sheets():
     return drive_service, sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def salvar_foto_no_drive(drive_service, file_storage):
-    """Realiza o upload da foto diretamente para a pasta no Drive Compartilhado."""
+    """Realiza o upload da foto diretamente para a pasta restrita do MKT no Drive."""
     if not file_storage or file_storage.filename == '':
         return ""
 
@@ -46,16 +46,19 @@ def salvar_foto_no_drive(drive_service, file_storage):
             'parents': [DRIVE_FOLDER_ID]
         }
         
+        # Upload com suporte a subpastas restritas em Drives Compartilhados
         arquivo_drive = drive_service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id',
             supportsAllDrives=True,
-            supportsTeamDrives=True
+            supportsTeamDrives=True,
+            enforceSingleParent=True
         ).execute()
 
         file_id = arquivo_drive.get('id')
 
+        # Torna o arquivo público para carregar como miniatura no site
         try:
             drive_service.permissions().create(
                 fileId=file_id,
@@ -69,7 +72,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
         return f"https://lh3.googleusercontent.com/d/{file_id}"
 
     except Exception as e:
-        print(f"Aviso no upload do Drive: {e}")
+        print(f"Aviso de permissão no upload do Drive: {e}")
         return ""
     finally:
         if os.path.exists(caminho_temp):
@@ -113,7 +116,7 @@ def cadastrar():
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
         
         if file_foto and file_foto.filename and not foto_url:
-            flash('Produto cadastrado com sucesso! (Aviso: Adicione o bot como Colaborador no Drive Compras para anexar as fotos)', 'warning')
+            flash('Produto cadastrado com sucesso! (Nota: Verifique a permissão de Editor na pasta Fotos Estoque MKT)', 'warning')
         else:
             flash('Produto cadastrado e foto enviada com sucesso!', 'success')
     except Exception as e:
