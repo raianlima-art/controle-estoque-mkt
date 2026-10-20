@@ -21,15 +21,13 @@ def get_sheets():
     return sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def normalizar_dados_produtos(produtos_raw):
-    """Normaliza as chaves do dicionário para evitar erros de KeyError no HTML."""
+    """Normaliza as chaves do dicionário para evitar erros no HTML."""
     produtos_formatados = []
     for p in produtos_raw:
-        # Pega os dados independentemente de variações no cabeçalho
         item_id = p.get('ID', p.get('id', ''))
         nome = p.get('Produto', p.get('Nome', p.get('produto', '')))
         categoria = p.get('Categoria', p.get('categoria', 'Geral'))
         
-        # Procura a quantidade
         saldo = p.get('Saldo Em Estoque', p.get('Saldo em Estoque', p.get('Quantidade', p.get('quantidade', 0))))
         try:
             saldo = int(saldo) if str(saldo).isdigit() else 0
@@ -52,7 +50,7 @@ def index():
         movimentacoes_raw = sheet_mov.get_all_records()
         
         produtos = normalizar_dados_produtos(produtos_raw)
-        movimentacoes_recentes = movimentacoes_raw[-10:][::-1] if movimentacoes_raw else []
+        movimentacoes_recentes = movimentacoes_raw[-15:][::-1] if movimentacoes_raw else []
     except Exception as e:
         flash(f'Erro ao carregar dados do sistema: {e}', 'danger')
         produtos = []
@@ -67,7 +65,7 @@ def cadastrar():
     qtd_inicial = int(request.form.get('quantidade', 0))
 
     try:
-        sheet_produtos, _ = get_sheets()
+        sheet_produtos, sheet_mov = get_sheets()
         produtos_raw = sheet_produtos.get_all_records()
 
         for p in produtos_raw:
@@ -77,8 +75,15 @@ def cadastrar():
                 return redirect(url_for('index'))
 
         novo_id = len(produtos_raw) + 1
-        # Grava na planilha [ID, Produto, Categoria, Quantidade]
+        # Registra o novo produto na aba Produtos
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial])
+
+        # Se houver quantidade inicial maior que zero, registra no histórico de movimentação
+        if qtd_inicial > 0:
+            fuso_br = pytz.timezone('America/Sao_Paulo')
+            data_hora = datetime.now(fuso_br).strftime('%d/%m/%Y %H:%M:%S')
+            sheet_mov.append_row([data_hora, nome, 'Entrada', qtd_inicial, 'Cadastro inicial de estoque'])
+
         flash('Produto cadastrado com sucesso!', 'success')
     except Exception as e:
         flash(f'Erro ao cadastrar produto: {e}', 'danger')
@@ -110,8 +115,9 @@ def movimentar():
         nova_qtd = (qtd_atual + qtd) if tipo == 'Entrada' else (qtd_atual - qtd)
         sheet_produtos.update_cell(linha, 4, nova_qtd)
 
+        # Grava a data e hora em formato brasileiro no Histórico de Movimentações
         fuso_br = pytz.timezone('America/Sao_Paulo')
-        data_hora = datetime.now(fuso_br).strftime('%Y-%m-%d %H:%M:%S')
+        data_hora = datetime.now(fuso_br).strftime('%d/%m/%Y %H:%M:%S')
         sheet_mov.append_row([data_hora, nome_produto, tipo, qtd, obs])
 
         flash(f'Movimentação de {tipo} registrada com sucesso!', 'success')

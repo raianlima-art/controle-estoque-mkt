@@ -58,10 +58,26 @@
             font-weight: 600;
             padding: 0.6rem 1.2rem;
         }
+        .accordion-button:not(.collapsed) {
+            background-color: #f8fafc;
+            color: #0f172a;
+            box-shadow: none;
+        }
+        .accordion-button:focus {
+            box-shadow: none;
+            border-color: rgba(0,0,0,.125);
+        }
+        .accordion-item {
+            border: none;
+            border-radius: var(--card-radius) !important;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
     </style>
 </head>
 <body>
 
+    <!-- Header -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3 mb-4 shadow-sm">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center gap-2" href="#">
@@ -73,6 +89,7 @@
 
     <div class="container mb-5">
 
+        <!-- Mensagens Flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
@@ -84,7 +101,7 @@
           {% endif %}
         {% endwith %}
 
-        <!-- KPIs -->
+        <!-- KPIs / Resumo -->
         <div class="row g-3 mb-4">
             <div class="col-md-4">
                 <div class="card card-custom kpi-card p-3">
@@ -137,78 +154,98 @@
             </div>
         </div>
 
-        <!-- Forms -->
+        <!-- Menus Retráteis (Ações) -->
         <div class="row g-4 mb-5">
+            
+            <!-- Menu Retrátil 1: Cadastrar Produto -->
             <div class="col-lg-6">
-                <div class="card card-custom h-100 p-4">
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <i class="bi bi-plus-circle-fill text-success fs-4"></i>
-                        <h5 class="m-0 fw-bold">Cadastrar Novo Produto</h5>
+                <div class="accordion" id="accordionCadastro">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingCadastro">
+                            <button class="accordion-button collapsed py-3 fw-bold fs-6" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCadastro" aria-expanded="false" aria-controls="collapseCadastro">
+                                <i class="bi bi-plus-circle-fill text-success fs-5 me-2"></i>
+                                Cadastrar Novo Produto
+                            </button>
+                        </h2>
+                        <div id="collapseCadastro" class="accordion-collapse collapse" aria-labelledby="headingCadastro" data-bs-parent="#accordionCadastro">
+                            <div class="accordion-body p-4 bg-white">
+                                <form action="/cadastrar" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold text-secondary">Nome do Produto</label>
+                                        <input type="text" name="nome" class="form-control" placeholder="Ex: Camiseta P - Evento" required>
+                                    </div>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-7">
+                                            <label class="form-label small fw-bold text-secondary">Categoria</label>
+                                            <input type="text" name="categoria" class="form-control" placeholder="Ex: Brindes, Vestuário" required>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label small fw-bold text-secondary">Qtd Inicial</label>
+                                            <input type="number" name="quantidade" class="form-control" value="0" min="0" required>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-success btn-custom w-100 mt-2">
+                                        <i class="bi bi-check-lg me-1"></i> Cadastrar Produto
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
-                    <form action="/cadastrar" method="POST">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">Nome do Produto</label>
-                            <input type="text" name="nome" class="form-control" placeholder="Ex: Camiseta P - Evento Tech" required>
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-7">
-                                <label class="form-label small fw-bold text-secondary">Categoria</label>
-                                <input type="text" name="categoria" class="form-control" placeholder="Ex: Brindes, Vestuário" required>
-                            </div>
-                            <div class="col-md-5">
-                                <label class="form-label small fw-bold text-secondary">Qtd Inicial</label>
-                                <input type="number" name="quantidade" class="form-control" value="0" min="0" required>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-success btn-custom w-100 mt-2">
-                            <i class="bi bi-check-lg me-1"></i> Cadastrar Produto
-                        </button>
-                    </form>
                 </div>
             </div>
 
+            <!-- Menu Retrátil 2: Registrar Movimentação -->
             <div class="col-lg-6">
-                <div class="card card-custom h-100 p-4">
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <i class="bi bi-arrow-left-right text-primary fs-4"></i>
-                        <h5 class="m-0 fw-bold">Registrar Movimentação</h5>
+                <div class="accordion" id="accordionMovimentacao">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingMovimentacao">
+                            <button class="accordion-button collapsed py-3 fw-bold fs-6" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMovimentacao" aria-expanded="false" aria-controls="collapseMovimentacao">
+                                <i class="bi bi-arrow-left-right text-primary fs-5 me-2"></i>
+                                Registrar Movimentação
+                            </button>
+                        </h2>
+                        <div id="collapseMovimentacao" class="accordion-collapse collapse" aria-labelledby="headingMovimentacao" data-bs-parent="#accordionMovimentacao">
+                            <div class="accordion-body p-4 bg-white">
+                                <form action="/movimentar" method="POST">
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold text-secondary">Selecione o Produto</label>
+                                        <select name="produto_id" class="form-select" required>
+                                            <option value="" disabled selected>-- Selecione um item --</option>
+                                            {% for p in produtos %}
+                                                <option value="{{ p['Produto'] }}">{{ p['Produto'] }} (Saldo: {{ p['Saldo'] }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-secondary">Tipo de Entrada/Saída</label>
+                                            <select name="tipo" class="form-select" required>
+                                                <option value="Entrada">Entrada (+)</option>
+                                                <option value="Saida">Saída (-)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-secondary">Quantidade</label>
+                                            <input type="number" name="quantidade" class="form-control" min="1" placeholder="Qtd" required>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small fw-bold text-secondary">Observação / Motivo</label>
+                                        <input type="text" name="observacao" class="form-control" placeholder="Ex: Ação de Marketing, Presente Cliente" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-custom w-100">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Confirmar Movimentação
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
                     </div>
-                    <form action="/movimentar" method="POST">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">Selecione o Produto</label>
-                            <select name="produto_id" class="form-select" required>
-                                <option value="" disabled selected>-- Selecione um item --</option>
-                                {% for p in produtos %}
-                                    <option value="{{ p['Produto'] }}">{{ p['Produto'] }} (Saldo: {{ p['Saldo'] }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-secondary">Tipo de Entrada/Saída</label>
-                                <select name="tipo" class="form-select" required>
-                                    <option value="Entrada">Entrada (+)</option>
-                                    <option value="Saida">Saída (-)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-secondary">Quantidade</label>
-                                <input type="number" name="quantidade" class="form-control" min="1" placeholder="Qtd" required>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-secondary">Observação / Motivo</label>
-                            <input type="text" name="observacao" class="form-control" placeholder="Ex: Feira Tech 2026, Presente Cliente" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-custom w-100">
-                            <i class="bi bi-arrow-repeat me-1"></i> Confirmar Movimentação
-                        </button>
-                    </form>
                 </div>
             </div>
+
         </div>
 
-        <!-- Tabela -->
+        <!-- Tabela Estoque Atual -->
         <div class="card card-custom p-4 mb-5">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
                 <div class="d-flex align-items-center gap-2">
@@ -259,7 +296,7 @@
             </div>
         </div>
 
-        <!-- Histórico -->
+        <!-- Histórico de Movimentações -->
         <div class="card card-custom p-4">
             <div class="d-flex align-items-center gap-2 mb-4">
                 <i class="bi bi-clock-history fs-4 text-dark"></i>
@@ -269,7 +306,7 @@
                 <table class="table table-hover align-middle table-custom mb-0">
                     <thead>
                         <tr>
-                            <th>Data / Hora</th>
+                            <th style="width: 180px;">Data / Hora</th>
                             <th>Produto</th>
                             <th>Tipo</th>
                             <th class="text-center">Quantidade</th>
@@ -279,7 +316,7 @@
                     <tbody>
                         {% for m in movimentacoes %}
                         <tr>
-                            <td class="text-secondary small">{{ m.get('Data/Hora', m.get('Data', '')) }}</td>
+                            <td class="text-secondary small fw-semibold"><i class="bi bi-calendar3 me-1"></i> {{ m.get('Data/Hora', m.get('Data', '')) }}</td>
                             <td class="fw-semibold text-dark">{{ m.get('Produto', '') }}</td>
                             <td>
                                 {% if m.get('Tipo', '') == 'Entrada' %}
@@ -303,6 +340,7 @@
 
     </div>
 
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.getElementById('inputBusca').addEventListener('keyup', function() {
