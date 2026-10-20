@@ -13,11 +13,15 @@ SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 
 def get_sheets():
     """Autentica e conecta com a Planilha Google (suporta variável do Render e arquivo local)."""
-    # Se estiver rodando no Render com a variável de ambiente cadastrada
     if "GOOGLE_CREDENTIALS" in os.environ:
-        creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+        creds_json = os.environ["GOOGLE_CREDENTIALS"]
+        creds_dict = json.loads(creds_json)
+        
+        # Correção crucial: garante que as quebras de linha da private_key sejam interpretadas corretamente na nuvem
+        if "private_key" in creds_dict:
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+            
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPE)
-    # Se estiver rodando localmente com o arquivo credentials.json
     else:
         creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
 
