@@ -30,7 +30,7 @@ def get_drive_and_sheets():
     return drive_service, sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def salvar_foto_no_drive(drive_service, file_storage):
-    """Tenta realizar o upload para o Google Drive com tratamento seguro de erros do Workspace."""
+    """Realiza o upload da foto para a pasta do Google Drive em ambiente Google Workspace."""
     if not file_storage or file_storage.filename == '':
         return ""
 
@@ -46,7 +46,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
             'parents': [DRIVE_FOLDER_ID]
         }
         
-        # Envia para o Drive
+        # Envia o arquivo habilitando suporte a drives corporativos e pastas compartilhadas
         arquivo_drive = drive_service.files().create(
             body=file_metadata,
             media_body=media,
@@ -57,7 +57,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
 
         file_id = arquivo_drive.get('id')
 
-        # Torna o arquivo visível para renderizar a imagem na tabela
+        # Torna a imagem pública para carregar como miniatura no HTML
         try:
             drive_service.permissions().create(
                 fileId=file_id,
@@ -71,7 +71,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
         return f"https://lh3.googleusercontent.com/d/{file_id}"
 
     except Exception as e:
-        print(f"Aviso no upload do Drive (Restricao Workspace): {e}")
+        print(f"Erro ao salvar foto no Drive: {e}")
         return ""
     finally:
         if os.path.exists(caminho_temp):
@@ -107,7 +107,6 @@ def cadastrar():
                 flash('Erro: Um produto com esse nome já existe no sistema!', 'danger')
                 return redirect(url_for('index'))
 
-        # Tenta realizar o upload da foto sem derrubar a rota caso haja erro no Drive
         foto_url = ""
         if file_foto and file_foto.filename:
             foto_url = salvar_foto_no_drive(drive_service, file_foto)
@@ -116,7 +115,7 @@ def cadastrar():
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
         
         if file_foto and file_foto.filename and not foto_url:
-            flash('Produto cadastrado com sucesso! (Nota: O upload direto via câmara/arquivo foi limitado pelas políticas do Workspace do Google Drive)', 'warning')
+            flash('Produto cadastrado, mas não foi possível salvar a imagem no Drive corporativo.', 'warning')
         else:
             flash('Produto cadastrado com sucesso!', 'success')
     except Exception as e:
