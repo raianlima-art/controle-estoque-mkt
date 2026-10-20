@@ -42,8 +42,23 @@ def normalizar_dados_produtos(produtos_raw):
         })
     return produtos_formatados
 
+def extrair_mes_ano(data_str):
+    """Extrai YYYY-MM para ordenação e filtro independente do formato da data."""
+    data_str = str(data_str).strip()
+    try:
+        if '-' in data_str[:10]: # Formato YYYY-MM-DD
+            partes = data_str[:10].split('-')
+            return f"{partes[0]}-{partes[1]}"
+        elif '/' in data_str[:10]: # Formato DD/MM/YYYY
+            partes = data_str[:10].split('/')
+            return f"{partes[2]}-{partes[1]}"
+    except Exception:
+        pass
+    fuso_br = pytz.timezone('America/Sao_Paulo')
+    return datetime.now(fuso_br).strftime('%Y-%m')
+
 def normalizar_dados_movimentacoes(movimentacoes_raw):
-    """Normaliza e extrai data/hora aceitando 'Data_Hora' da planilha."""
+    """Normaliza e extrai data/hora e mês/ano das movimentações."""
     movimentacoes_formatadas = []
     for m in movimentacoes_raw:
         data_hora = (
@@ -59,13 +74,16 @@ def normalizar_dados_movimentacoes(movimentacoes_raw):
         tipo = m.get('Tipo', m.get('tipo', ''))
         qtd = m.get('Quantidade', m.get('Qtd', m.get('quantidade', 0)))
         obs = m.get('Observacao', m.get('Observação', m.get('observacao', '')))
+        
+        mes_ano = extrair_mes_ano(data_hora)
 
         movimentacoes_formatadas.append({
             'DataHora': str(data_hora),
             'Produto': produto,
             'Tipo': tipo,
             'Quantidade': qtd,
-            'Observacao': obs
+            'Observacao': obs,
+            'MesAno': mes_ano
         })
     return movimentacoes_formatadas
 
@@ -78,15 +96,32 @@ def index():
         
         produtos = normalizar_dados_produtos(produtos_raw)
         movimentacoes = normalizar_dados_movimentacoes(movimentacoes_raw)
+        movimentacoes_ordenadas = movimentacoes[::-1] if movimentacoes else []
         
-        # Pega as últimas 15 movimentações em ordem decrescente
-        movimentacoes_recentes = movimentacoes[-15:][::-1] if movimentacoes else []
+        # Mês vigente atual (Ex: '2026-10')
+        fuso_br = pytz.timezone('America/Sao_Paulo')
+        mes_vigente = datetime.now(fuso_br).strftime('%Y-%m')
+        
+        # Coleta lista de meses únicos disponíveis no histórico
+        meses_disponiveis = sorted(list(set(m['MesAno'] for m in movimentacoes if m['MesAno'] != 'Sem data')), reverse=True)
+        if mes_vigente not in meses_disponiveis:
+            meses_disponiveis.insert(0, mes_vigente)
+
     except Exception as e:
         flash(f'Erro ao carregar dados do sistema: {e}', 'danger')
         produtos = []
-        movimentacoes_recentes = []
+        movimentacoes_ordenadas = []
+        meses_disponiveis = []
+        fuso_br = pytz.timezone('America/Sao_Paulo')
+        mes_vigente = datetime.now(fuso_br).strftime('%Y-%m')
 
-    return render_template('index.html', produtos=produtos, movimentacoes=movimentacoes_recentes)
+    return render_template(
+        'index.html', 
+        produtos=produtos, 
+        movimentacoes=movimentacoes_ordenadas,
+        meses_disponiveis=meses_disponiveis,
+        mes_vigente=mes_vigente
+    )
 
 @app.route('/cadastrar', methods=['POST'])
 def cadastrar():

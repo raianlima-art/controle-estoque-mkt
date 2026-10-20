@@ -306,14 +306,30 @@
             </div>
         </div>
 
-        <!-- Histórico de Movimentações Recentes -->
+        <!-- Histórico de Movimentações com Filtro de Mês/Ano -->
         <div class="card card-custom p-4">
-            <div class="d-flex align-items-center gap-2 mb-4">
-                <i class="bi bi-clock-history fs-4 text-dark"></i>
-                <h5 class="m-0 fw-bold">Histórico de Movimentações Recentes</h5>
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-clock-history fs-4 text-dark"></i>
+                    <h5 class="m-0 fw-bold">Histórico de Movimentações</h5>
+                </div>
+                
+                <!-- Filtro por Mês/Ano -->
+                <div class="d-flex align-items-center gap-2">
+                    <label for="selectMesFiltro" class="small fw-bold text-muted text-nowrap mb-0"><i class="bi bi-funnel-fill me-1"></i>Filtrar por Mês:</label>
+                    <select id="selectMesFiltro" class="form-select form-select-sm" style="min-width: 160px;">
+                        <option value="TODOS">-- Ver Todos os Meses --</option>
+                        {% for m in meses_disponiveis %}
+                            <option value="{{ m }}" {% if m == mes_vigente %}selected{% endif %}>
+                                {{ m }} {% if m == mes_vigente %}(Mês Atual){% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
+
             <div class="table-responsive">
-                <table class="table table-hover align-middle table-custom mb-0">
+                <table class="table table-hover align-middle table-custom mb-0" id="tabelaHistorico">
                     <thead>
                         <tr>
                             <th style="width: 200px;">Data / Hora</th>
@@ -325,7 +341,7 @@
                     </thead>
                     <tbody>
                         {% for m in movimentacoes %}
-                        <tr>
+                        <tr data-mes="{{ m['MesAno'] }}">
                             <td class="text-secondary small fw-semibold">
                                 <i class="bi bi-calendar3 me-1 text-muted"></i> {{ m['DataHora'] }}
                             </td>
@@ -345,6 +361,9 @@
                             <td colspan="5" class="text-center text-muted py-4">Nenhuma movimentação registrada.</td>
                         </tr>
                         {% endfor %}
+                        <tr id="linhaVaziaFiltro" style="display: none;">
+                            <td colspan="5" class="text-center text-muted py-4">Nenhuma movimentação encontrada para o mês selecionado.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -355,6 +374,7 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Busca em tempo real na tabela de produtos
         document.getElementById('inputBusca').addEventListener('keyup', function() {
             let filtro = this.value.toLowerCase();
             let linhas = document.querySelectorAll('#tabelaEstoque tbody tr');
@@ -368,6 +388,33 @@
                 }
             });
         });
+
+        // Filtro por Mês na Tabela de Histórico
+        function aplicarFiltroMes() {
+            let mesSelecionado = document.getElementById('selectMesFiltro').value;
+            let linhas = document.querySelectorAll('#tabelaHistorico tbody tr[data-mes]');
+            let visiveis = 0;
+
+            linhas.forEach(function(linha) {
+                let mesLinha = linha.getAttribute('data-mes');
+                if (mesSelecionado === 'TODOS' || mesLinha === mesSelecionado) {
+                    linha.style.display = '';
+                    visiveis++;
+                } else {
+                    linha.style.display = 'none';
+                }
+            });
+
+            let linhaVazia = document.getElementById('linhaVaziaFiltro');
+            if (linhaVazia) {
+                linhaVazia.style.display = (visiveis === 0) ? '' : 'none';
+            }
+        }
+
+        document.getElementById('selectMesFiltro').addEventListener('change', aplicarFiltroMes);
+        
+        // Executa o filtro assim que a página carrega para mostrar apenas o mês atual
+        document.addEventListener('DOMContentLoaded', aplicarFiltroMes);
 
         function exibirLoading(form) {
             let btn = form.querySelector('.btn-submit');
