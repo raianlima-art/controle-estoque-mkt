@@ -43,16 +43,15 @@ def normalizar_dados_produtos(produtos_raw):
     return produtos_formatados
 
 def normalizar_dados_movimentacoes(movimentacoes_raw):
-    """Normaliza e extrai data/hora de qualquer variação de coluna no Sheets."""
+    """Normaliza e extrai data/hora aceitando 'Data_Hora' da planilha."""
     movimentacoes_formatadas = []
     for m in movimentacoes_raw:
-        # Busca todas as variações possíveis de nome de coluna de data
         data_hora = (
+            m.get('Data_Hora') or 
             m.get('Data/Hora') or 
             m.get('Data / Hora') or 
             m.get('Data') or 
             m.get('DataHora') or 
-            m.get('data') or 
             'Sem data'
         )
         
@@ -130,11 +129,10 @@ def movimentar():
         sheet_produtos, sheet_mov = get_sheets()
         produtos_raw = sheet_produtos.get_all_records()
         
-        # Busca a linha do produto diretamente na memória local (muito mais rápido que .find do gspread)
         linha_index = None
         qtd_atual = 0
         
-        for idx, p in enumerate(produtos_raw, start=2): # start=2 pois a linha 1 é cabeçalho
+        for idx, p in enumerate(produtos_raw, start=2):
             nome_p = p.get('Produto', p.get('Nome', ''))
             if str(nome_p).strip() == str(nome_produto).strip():
                 linha_index = idx
@@ -151,7 +149,6 @@ def movimentar():
             return redirect(url_for('index'))
 
         nova_qtd = (qtd_atual + qtd) if tipo == 'Entrada' else (qtd_atual - qtd)
-        # Atualiza o saldo da coluna 4 na planilha
         sheet_produtos.update_cell(linha_index, 4, nova_qtd)
 
         fuso_br = pytz.timezone('America/Sao_Paulo')
