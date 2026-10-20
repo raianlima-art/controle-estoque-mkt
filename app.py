@@ -32,11 +32,11 @@ def get_drive_and_sheets():
     return drive_service, sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def salvar_foto_no_drive(drive_service, file_storage):
-    """Salva o ficheiro temporariamente e faz o upload para o Google Drive."""
+    """Salva o ficheiro temporariamente e faz o upload para a pasta do Google Drive."""
     if not file_storage or file_storage.filename == '':
         return ""
 
-    # Salva temporariamente no servidor local
+    # Salva temporariamente no disco local do servidor
     caminho_temp = os.path.join("/tmp" if os.name != 'nt' else ".", file_storage.filename)
     file_storage.save(caminho_temp)
 
@@ -44,33 +44,23 @@ def salvar_foto_no_drive(drive_service, file_storage):
         nome_arquivo = f"produto_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file_storage.filename}"
         media = MediaFileUpload(caminho_temp, mimetype=file_storage.mimetype)
         
-        # Tentativa 1: Tenta enviar diretamente para a pasta do Drive
-        try:
-            file_metadata = {
-                'name': nome_arquivo,
-                'parents': [DRIVE_FOLDER_ID]
-            }
-            arquivo_drive = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id',
-                supportsAllDrives=True,
-                supportsTeamDrives=True
-            ).execute()
-        except Exception as e:
-            # Tentativa 2 (Fallback): Caso a pasta não seja encontrada ou dê erro 404, grava sem especificar pasta
-            file_metadata = {'name': nome_arquivo}
-            arquivo_drive = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id',
-                supportsAllDrives=True,
-                supportsTeamDrives=True
-            ).execute()
+        file_metadata = {
+            'name': nome_arquivo,
+            'parents': [DRIVE_FOLDER_ID]
+        }
+        
+        # Faz o upload diretamente para a pasta do Google Drive
+        arquivo_drive = drive_service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id',
+            supportsAllDrives=True,
+            supportsTeamDrives=True
+        ).execute()
 
         file_id = arquivo_drive.get('id')
 
-        # Torna o ficheiro público para exibição da imagem no site
+        # Torna o ficheiro público para leitura para ser exibido no site
         try:
             drive_service.permissions().create(
                 fileId=file_id,
@@ -81,11 +71,13 @@ def salvar_foto_no_drive(drive_service, file_storage):
         except Exception:
             pass
 
-        # Retorna o link de visualização direta
         return f"https://lh3.googleusercontent.com/d/{file_id}"
 
+    except Exception as e:
+        print(f"Erro ao salvar foto no Drive: {e}")
+        # Em caso de erro no upload da foto, retorna uma string vazia para não interromper o cadastro do item
+        return ""
     finally:
-        # Garante a remoção do ficheiro temporário do servidor
         if os.path.exists(caminho_temp):
             os.remove(caminho_temp)
 
@@ -119,13 +111,13 @@ def cadastrar():
                 flash('Erro: Um produto com esse nome já existe no sistema!', 'danger')
                 return redirect(url_for('index'))
 
-        # Envia a foto para o Drive
+        # Envia a foto para a pasta do Drive
         foto_url = salvar_foto_no_drive(drive_service, file_foto)
 
         novo_id = len(produtos) + 1
         # Regista na planilha [ID, Nome, Categoria, Quantidade, Foto]
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
-        flash('Produto cadastrado e foto enviada com sucesso!', 'success')
+        flash('Produto cadastrado com sucesso!', 'success')
     except Exception as e:
         flash(f'Erro ao cadastrar produto: {e}', 'danger')
 
