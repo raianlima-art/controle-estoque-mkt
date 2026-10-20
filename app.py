@@ -1,5 +1,6 @@
 import os
 import gspread
+import pytz
 from oauth2client.service_account import ServiceAccountCredentials
 from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
@@ -92,8 +93,10 @@ def movimentar():
         # Atualiza a Quantidade na aba 'Produtos'
         sheet_produtos.update_cell(linha, 4, nova_qtd)
 
-        # Registra no histórico da aba 'Movimentacoes'
-        data_hora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # Registra no histórico da aba 'Movimentacoes' usando o fuso horário de Brasília
+        fuso_br = pytz.timezone('America/Sao_Paulo')
+        data_hora = datetime.now(fuso_br).strftime('%Y-%m-%d %H:%M:%S')
+        
         sheet_mov.append_row([data_hora, nome_produto, tipo, qtd, obs])
 
         flash(f'Movimentação de {tipo} salva com sucesso no Google Sheets!', 'success')
