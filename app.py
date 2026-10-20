@@ -10,8 +10,8 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_mkt'
 
-# ID da pasta 'Fotos Estoque MKT'
-DRIVE_FOLDER_ID = "1VfYSxih1ZiQYUTnTWsxPQntv-qKej"
+# Novo ID da pasta 'Fotos Estoque MKT' dentro do Drive Compartilhado 'Compras'
+DRIVE_FOLDER_ID = "193W91ecaAJIS_I-ekRl-HUKa_XDkHzYC"
 
 SCOPE = [
     "https://spreadsheets.google.com/feeds",
@@ -30,7 +30,7 @@ def get_drive_and_sheets():
     return drive_service, sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def salvar_foto_no_drive(drive_service, file_storage):
-    """Realiza o upload da foto para a pasta do Google Drive em ambiente Google Workspace."""
+    """Realiza o upload da foto diretamente para a pasta no Drive Compartilhado."""
     if not file_storage or file_storage.filename == '':
         return ""
 
@@ -46,7 +46,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
             'parents': [DRIVE_FOLDER_ID]
         }
         
-        # Envia o arquivo habilitando suporte a drives corporativos e pastas compartilhadas
+        # Envia o arquivo com suporte a Drives Compartilhados ativado
         arquivo_drive = drive_service.files().create(
             body=file_metadata,
             media_body=media,
@@ -57,7 +57,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
 
         file_id = arquivo_drive.get('id')
 
-        # Torna a imagem pública para carregar como miniatura no HTML
+        # Concede permissão de leitura pública para renderizar a miniatura na tabela do site
         try:
             drive_service.permissions().create(
                 fileId=file_id,
@@ -70,9 +70,6 @@ def salvar_foto_no_drive(drive_service, file_storage):
 
         return f"https://lh3.googleusercontent.com/d/{file_id}"
 
-    except Exception as e:
-        print(f"Erro ao salvar foto no Drive: {e}")
-        return ""
     finally:
         if os.path.exists(caminho_temp):
             os.remove(caminho_temp)
@@ -107,17 +104,13 @@ def cadastrar():
                 flash('Erro: Um produto com esse nome já existe no sistema!', 'danger')
                 return redirect(url_for('index'))
 
-        foto_url = ""
-        if file_foto and file_foto.filename:
-            foto_url = salvar_foto_no_drive(drive_service, file_foto)
+        # Envia a foto para a nova pasta no Drive Compartilhado
+        foto_url = salvar_foto_no_drive(drive_service, file_foto)
 
         novo_id = len(produtos) + 1
+        # Regista na planilha [ID, Nome, Categoria, Quantidade, Foto]
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
-        
-        if file_foto and file_foto.filename and not foto_url:
-            flash('Produto cadastrado, mas não foi possível salvar a imagem no Drive corporativo.', 'warning')
-        else:
-            flash('Produto cadastrado com sucesso!', 'success')
+        flash('Produto cadastrado e foto enviada com sucesso!', 'success')
     except Exception as e:
         flash(f'Erro ao cadastrar produto: {e}', 'danger')
 
