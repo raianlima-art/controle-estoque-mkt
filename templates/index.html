@@ -12,7 +12,7 @@
 <div class="container py-4">
     <h1 class="mb-4 text-center">📦 Controle de Estoque - Marketing</h1>
 
-    <!-- Exibição de Mensagens de Alerta/Notificação -->
+    <!-- Exibição de Mensagens -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -25,14 +25,15 @@
     {% endwith %}
 
     <div class="row g-4">
-        <!-- Cadastrar Produto -->
+        <!-- Cadastrar Produto com Envio de Foto -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
                 <div class="card-header bg-primary text-white">
                     <h5 class="card-title mb-0">Cadastrar Novo Item</h5>
                 </div>
                 <div class="card-body">
-                    <form action="/cadastrar" method="POST">
+                    <!-- enctype="multipart/form-data" é obrigatório para envio de arquivos -->
+                    <form action="/cadastrar" method="POST" enctype="multipart/form-data">
                         <div class="mb-3">
                             <label class="form-label">Nome do Produto</label>
                             <input type="text" name="nome" class="form-control" placeholder="Ex: Camiseta P - Evento" required>
@@ -40,6 +41,11 @@
                         <div class="mb-3">
                             <label class="form-label">Categoria</label>
                             <input type="text" name="categoria" class="form-control" placeholder="Ex: Brindes, Vestuário, Impressos" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tirar ou Anexar Foto do Item</label>
+                            <!-- accept="image/*" ativa a câmera em celulares e aceita fotos -->
+                            <input type="file" name="foto" class="form-control" accept="image/*">
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Quantidade Inicial</label>
@@ -92,16 +98,17 @@
         </div>
     </div>
 
-    <!-- Tabela de Produtos -->
+    <!-- Tabela de Produtos com Foto do Drive -->
     <div class="card shadow-sm my-4">
         <div class="card-header bg-white">
             <h5 class="card-title mb-0">Estoque Atual</h5>
         </div>
         <div class="card-body p-0">
-            <table class="table table-striped table-hover mb-0">
+            <table class="table table-striped table-hover align-middle mb-0">
                 <thead class="table-dark">
                     <tr>
                         <th>ID</th>
+                        <th>Foto</th>
                         <th>Produto</th>
                         <th>Categoria</th>
                         <th>Saldo Em Estoque</th>
@@ -111,6 +118,15 @@
                     {% for p in produtos %}
                     <tr>
                         <td>{{ p.ID }}</td>
+                        <td>
+                            {% if p.Foto %}
+                                <a href="{{ p.Foto }}" target="_blank">
+                                    <img src="{{ p.Foto }}" alt="{{ p.Nome }}" class="rounded shadow-sm" style="width: 48px; height: 48px; object-fit: cover;">
+                                </a>
+                            {% else %}
+                                <span class="badge bg-light text-dark border">Sem foto</span>
+                            {% endif %}
+                        </td>
                         <td><strong>{{ p.Nome }}</strong></td>
                         <td><span class="badge bg-secondary">{{ p.Categoria }}</span></td>
                         <td>
@@ -123,7 +139,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="text-center py-3 text-muted">Nenhum produto cadastrado.</td>
+                        <td colspan="5" class="text-center py-3 text-muted">Nenhum produto cadastrado.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -173,7 +189,6 @@
     </div>
 </div>
 
-<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
