@@ -48,20 +48,25 @@ def salvar_foto_no_drive(drive_service, file_storage):
         }
         media = MediaFileUpload(caminho_temp, mimetype=file_storage.mimetype)
         
-        # Realiza o Upload
+        # Realiza o Upload com suporte a Drives compartilhados
         arquivo_drive = drive_service.files().create(
             body=file_metadata,
             media_body=media,
-            fields='id'
+            fields='id',
+            supportsAllDrives=True
         ).execute()
 
         file_id = arquivo_drive.get('id')
 
-        # Torna o arquivo público para leitura
-        drive_service.permissions().create(
-            fileId=file_id,
-            body={'type': 'anyone', 'role': 'reader'}
-        ).execute()
+        # Torna o arquivo público para leitura de miniatura
+        try:
+            drive_service.permissions().create(
+                fileId=file_id,
+                body={'type': 'anyone', 'role': 'reader'},
+                supportsAllDrives=True
+            ).execute()
+        except Exception:
+            pass
 
         # Link direto para visualização em tags <img>
         return f"https://lh3.googleusercontent.com/d/{file_id}"
@@ -101,10 +106,11 @@ def cadastrar():
                 flash('Erro: Um produto com esse nome já existe no sistema!', 'danger')
                 return redirect(url_for('index'))
 
-        # Faz o upload do arquivo enviado pelo usuário diretamente para a pasta do Drive
+        # Faz o upload da foto diretamente para a pasta do Drive
         foto_url = salvar_foto_no_drive(drive_service, file_foto)
 
         novo_id = len(produtos) + 1
+        # Adiciona na planilha [ID, Nome, Categoria, Quantidade, Foto]
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
         flash('Produto cadastrado e foto enviada para o Drive com sucesso!', 'success')
     except Exception as e:
