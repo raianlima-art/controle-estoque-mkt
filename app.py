@@ -1,5 +1,4 @@
 import os
-import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from flask import Flask, render_template, request, redirect, url_for, flash
@@ -12,20 +11,10 @@ app.secret_key = 'chave_secreta_mkt'
 SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
 def get_sheets():
-    """Autentica e conecta com a Planilha Google (suporta variável do Render e arquivo local)."""
-    if "GOOGLE_CREDENTIALS" in os.environ:
-        creds_json = os.environ["GOOGLE_CREDENTIALS"]
-        creds_dict = json.loads(creds_json)
-        
-        # Correção crucial: garante que as quebras de linha da private_key sejam interpretadas corretamente na nuvem
-        if "private_key" in creds_dict:
-            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
-            
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, SCOPE)
-    else:
-        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
-
+    """Autentica e conecta com a Planilha Google usando o arquivo credentials.json."""
+    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
     client = gspread.authorize(creds)
+    
     # Abre a planilha pelo nome exato
     sheet = client.open("Controle de Estoque MKT - Produtos")
     return sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
