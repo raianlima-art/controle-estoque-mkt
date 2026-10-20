@@ -10,7 +10,7 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = 'chave_secreta_mkt'
 
-# ID da pasta 'Fotos Estoque MKT' no Google Drive
+# ID exato extraído da URL da sua pasta do Google Drive
 DRIVE_FOLDER_ID = "1VfYSxih1ZiQYUTnTWsxPQntv-qKej"
 
 SCOPE = [
@@ -22,17 +22,15 @@ def get_drive_and_sheets():
     """Autentica e retorna os serviços do Google Drive e do Google Sheets."""
     creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
     
-    # Cliente do Sheets
     client = gspread.authorize(creds)
     sheet = client.open("Controle de Estoque MKT - Produtos")
     
-    # Serviço da API do Google Drive para upload
     drive_service = build('drive', 'v3', credentials=creds)
     
     return drive_service, sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def salvar_foto_no_drive(drive_service, file_storage):
-    """Salva o ficheiro temporariamente e faz o upload para a pasta do Google Drive."""
+    """Salva o arquivo temporariamente e faz o upload para a pasta compartilhada no Google Drive."""
     if not file_storage or file_storage.filename == '':
         return ""
 
@@ -49,7 +47,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
             'parents': [DRIVE_FOLDER_ID]
         }
         
-        # Faz o upload diretamente para a pasta do Google Drive
+        # Envia diretamente para a pasta compartilhada no Drive
         arquivo_drive = drive_service.files().create(
             body=file_metadata,
             media_body=media,
@@ -60,7 +58,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
 
         file_id = arquivo_drive.get('id')
 
-        # Torna o ficheiro público para leitura para ser exibido no site
+        # Concede permissão de leitura pública para exibir a imagem na tabela
         try:
             drive_service.permissions().create(
                 fileId=file_id,
@@ -74,9 +72,7 @@ def salvar_foto_no_drive(drive_service, file_storage):
         return f"https://lh3.googleusercontent.com/d/{file_id}"
 
     except Exception as e:
-        print(f"Erro ao salvar foto no Drive: {e}")
-        # Em caso de erro no upload da foto, retorna uma string vazia para não interromper o cadastro do item
-        return ""
+        raise Exception(f"Erro ao salvar foto no Drive: {e}")
     finally:
         if os.path.exists(caminho_temp):
             os.remove(caminho_temp)
@@ -115,7 +111,7 @@ def cadastrar():
         foto_url = salvar_foto_no_drive(drive_service, file_foto)
 
         novo_id = len(produtos) + 1
-        # Regista na planilha [ID, Nome, Categoria, Quantidade, Foto]
+        # Registra na planilha [ID, Nome, Categoria, Quantidade, Foto]
         sheet_produtos.append_row([novo_id, nome, categoria, qtd_inicial, foto_url])
         flash('Produto cadastrado com sucesso!', 'success')
     except Exception as e:
