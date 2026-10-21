@@ -1,8 +1,10 @@
 import os
 import pytz
 import gspread
+import pandas as pd
+from io import BytesIO
 from oauth2client.service_account import ServiceAccountCredentials
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from datetime import datetime
 
 app = Flask(__name__)
@@ -43,13 +45,13 @@ def normalizar_dados_produtos(produtos_raw):
     return produtos_formatados
 
 def extrair_mes_ano(data_str):
-    """Extrai YYYY-MM para ordenação e filtro independente do formato da data."""
+    """Extrai YYYY-MM para ordenação e filtro."""
     data_str = str(data_str).strip()
     try:
-        if '-' in data_str[:10]: # Formato YYYY-MM-DD
+        if '-' in data_str[:10]:
             partes = data_str[:10].split('-')
             return f"{partes[0]}-{partes[1]}"
-        elif '/' in data_str[:10]: # Formato DD/MM/YYYY
+        elif '/' in data_str[:10]:
             partes = data_str[:10].split('/')
             return f"{partes[2]}-{partes[1]}"
     except Exception:
@@ -98,11 +100,18 @@ def index():
         movimentacoes = normalizar_dados_movimentacoes(movimentacoes_raw)
         movimentacoes_ordenadas = movimentacoes[::-1] if movimentacoes else []
         
-        # Mês vigente atual (Ex: '2026-10')
+        # Consolida resumo de contagem por Categoria
+        resumo_categorias = {}
+        for p in produtos:
+            cat = p['Categoria']
+            if cat not in resumo_categorias:
+                resumo_categorias[cat] = {'qtd_produtos': 0, 'saldo_total': 0}
+            resumo_categorias[cat]['qtd_produtos'] += 1
+            resumo_categorias[cat]['saldo_total'] += p['Saldo']
+
         fuso_br = pytz.timezone('America/Sao_Paulo')
         mes_vigente = datetime.now(fuso_br).strftime('%Y-%m')
         
-        # Coleta lista de meses únicos disponíveis no histórico
         meses_disponiveis = sorted(list(set(m['MesAno'] for m in movimentacoes if m['MesAno'] != 'Sem data')), reverse=True)
         if mes_vigente not in meses_disponiveis:
             meses_disponiveis.insert(0, mes_vigente)
@@ -111,6 +120,7 @@ def index():
         flash(f'Erro ao carregar dados do sistema: {e}', 'danger')
         produtos = []
         movimentacoes_ordenadas = []
+        resumo_categorias = {}
         meses_disponiveis = []
         fuso_br = pytz.timezone('America/Sao_Paulo')
         mes_vigente = datetime.now(fuso_br).strftime('%Y-%m')
@@ -119,9 +129,46 @@ def index():
         'index.html', 
         produtos=produtos, 
         movimentacoes=movimentacoes_ordenadas,
+        resumo_categorias=resumo_categorias,
         meses_disponiveis=meses_disponiveis,
         mes_vigente=mes_vigente
     )
+
+@app.route('/exportar')
+def exportar():
+    """Gera e faz o download de um relatório em Excel (.xlsx) com o inventário completo."""
+    try:
+        sheet_produtos, sheet_mov = get_sheets()
+        produtos = normalizar_dados_produtos(sheet_produtos.get_all_records())
+        movimentacoes = normalizar_dados_movimentacoes(sheet_mov.get_all_records())
+
+        df_produtos = pd.DataFrame(produtos)
+        df_produtos.columns = ['ID', 'Produto', 'Categoria', 'Saldo em Estoque']
+
+        df_mov = pd.DataFrame(movimentacoes)
+        if not df_mov.empty:
+            df_mov = df_mov[['DataHora', 'Produto', 'Tipo', 'Quantidade', 'Observacao']]
+            df_mov.columns = ['Data/Hora', 'Produto', 'Tipo', 'Quantidade', 'Observação']
+
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_produtos.to_excel(writer, sheet_name='Inventario_Atual', index=False)
+            if not df_mov.empty:
+                df_mov.to_excel(writer, sheet_name='Historico_Movimentacoes', index=False)
+
+        output.seek(0)
+        fuso_br = pytz.timezone('America/Sao_Paulo')
+        data_atual = datetime.now(fuso_br).strftime('%Y%m%d')
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'Relatorio_Estoque_MKT_{data_atual}.xlsx'
+        )
+    except Exception as e:
+        flash(f'Erro ao gerar relatório Excel: {e}', 'danger')
+        return redirect(url_for('index'))
 
 @app.route('/cadastrar', methods=['POST'])
 def cadastrar():
