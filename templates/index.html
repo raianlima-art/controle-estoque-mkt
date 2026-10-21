@@ -255,7 +255,7 @@
 
         </div>
 
-        <!-- Tabela Estoque Atual e Relatório -->
+        <!-- Tabela Estoque Atual e Relatórios -->
         <div class="card card-custom p-4 mb-5">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
                 <div class="d-flex align-items-center gap-2">
@@ -264,10 +264,13 @@
                 </div>
                 
                 <div class="d-flex flex-wrap gap-2 col-md-7 justify-content-end">
+                    <a href="/exportar_pdf" target="_blank" class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1 fw-bold">
+                        <i class="bi bi-file-earmark-pdf-fill"></i> Gerar Relatório PDF
+                    </a>
                     <a href="/exportar" class="btn btn-outline-success btn-sm d-flex align-items-center gap-1 fw-bold">
                         <i class="bi bi-file-earmark-excel-fill"></i> Baixar Relatório Excel
                     </a>
-                    <div class="input-group input-group-sm style-search" style="max-width: 250px;">
+                    <div class="input-group input-group-sm style-search" style="max-width: 200px;">
                         <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" id="inputBusca" class="form-control border-start-0" placeholder="Buscar produto...">
                     </div>
