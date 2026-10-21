@@ -23,7 +23,7 @@ def get_sheets():
     return sheet.worksheet("Produtos"), sheet.worksheet("Movimentacoes")
 
 def normalizar_dados_produtos(produtos_raw):
-    """Normaliza as chaves da planilha de produtos."""
+    """Normaliza as chaves da planilha de produtos para o padrão do sistema."""
     produtos_formatados = []
     for p in produtos_raw:
         item_id = p.get('ID', p.get('id', ''))
@@ -60,7 +60,7 @@ def extrair_mes_ano(data_str):
     return datetime.now(fuso_br).strftime('%Y-%m')
 
 def normalizar_dados_movimentacoes(movimentacoes_raw):
-    """Normaliza e extrai data/hora e mês/ano das movimentações."""
+    """Normaliza e extrai data/hora e mês/ano aceitando 'Data_Hora' do Sheets."""
     movimentacoes_formatadas = []
     for m in movimentacoes_raw:
         data_hora = (
@@ -134,42 +134,6 @@ def index():
         mes_vigente=mes_vigente
     )
 
-@app.route('/exportar')
-def exportar():
-    """Gera e faz o download de um relatório em Excel (.xlsx) com o inventário completo."""
-    try:
-        sheet_produtos, sheet_mov = get_sheets()
-        produtos = normalizar_dados_produtos(sheet_produtos.get_all_records())
-        movimentacoes = normalizar_dados_movimentacoes(sheet_mov.get_all_records())
-
-        df_produtos = pd.DataFrame(produtos)
-        df_produtos.columns = ['ID', 'Produto', 'Categoria', 'Saldo em Estoque']
-
-        df_mov = pd.DataFrame(movimentacoes)
-        if not df_mov.empty:
-            df_mov = df_mov[['DataHora', 'Produto', 'Tipo', 'Quantidade', 'Observacao']]
-            df_mov.columns = ['Data/Hora', 'Produto', 'Tipo', 'Quantidade', 'Observação']
-
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_produtos.to_excel(writer, sheet_name='Inventario_Atual', index=False)
-            if not df_mov.empty:
-                df_mov.to_excel(writer, sheet_name='Historico_Movimentacoes', index=False)
-
-        output.seek(0)
-        fuso_br = pytz.timezone('America/Sao_Paulo')
-        data_atual = datetime.now(fuso_br).strftime('%Y%m%d')
-
-        return send_file(
-            output,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=f'Relatorio_Estoque_MKT_{data_atual}.xlsx'
-        )
-    except Exception as e:
-        flash(f'Erro ao gerar relatório Excel: {e}', 'danger')
-        return redirect(url_for('index'))
-
 @app.route('/cadastrar', methods=['POST'])
 def cadastrar():
     nome = request.form['nome']
@@ -242,6 +206,63 @@ def movimentar():
         flash(f'Erro ao registrar movimentação: {e}', 'danger')
 
     return redirect(url_for('index'))
+
+@app.route('/exportar')
+def exportar():
+    """Gera e faz o download de um relatório em Excel (.xlsx) com o inventário completo."""
+    try:
+        sheet_produtos, sheet_mov = get_sheets()
+        produtos = normalizar_dados_produtos(sheet_produtos.get_all_records())
+        movimentacoes = normalizar_dados_movimentacoes(sheet_mov.get_all_records())
+
+        df_produtos = pd.DataFrame(produtos)
+        df_produtos.columns = ['ID', 'Produto', 'Categoria', 'Saldo em Estoque']
+
+        df_mov = pd.DataFrame(movimentacoes)
+        if not df_mov.empty:
+            df_mov = df_mov[['DataHora', 'Produto', 'Tipo', 'Quantidade', 'Observacao']]
+            df_mov.columns = ['Data/Hora', 'Produto', 'Tipo', 'Quantidade', 'Observação']
+
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_produtos.to_excel(writer, sheet_name='Inventario_Atual', index=False)
+            if not df_mov.empty:
+                df_mov.to_excel(writer, sheet_name='Historico_Movimentacoes', index=False)
+
+        output.seek(0)
+        fuso_br = pytz.timezone('America/Sao_Paulo')
+        data_atual = datetime.now(fuso_br).strftime('%Y%m%d')
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'Relatorio_Estoque_MKT_{data_atual}.xlsx'
+        )
+    except Exception as e:
+        flash(f'Erro ao gerar relatório Excel: {e}', 'danger')
+        return redirect(url_for('index'))
+
+@app.route('/exportar_pdf')
+def exportar_pdf():
+    """Rota para visualização/impressão do relatório em PDF formatado."""
+    try:
+        sheet_produtos, sheet_mov = get_sheets()
+        produtos = normalizar_dados_produtos(sheet_produtos.get_all_records())
+        movimentacoes = normalizar_dados_movimentacoes(sheet_mov.get_all_records())
+        
+        fuso_br = pytz.timezone('America/Sao_Paulo')
+        data_atual = datetime.now(fuso_br).strftime('%d/%m/%Y %H:%M')
+
+        return render_template(
+            'relatorio_pdf.html', 
+            produtos=produtos, 
+            movimentacoes=movimentacoes[:15],
+            data_atual=data_atual
+        )
+    except Exception as e:
+        flash(f'Erro ao gerar relatório PDF: {e}', 'danger')
+        return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)
